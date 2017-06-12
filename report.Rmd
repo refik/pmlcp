@@ -1,0 +1,165 @@
+---
+title: "Weight Lifting Recognition"
+author: "Refik Türkeli"
+date: "6/11/2017"
+output: html_document
+---
+
+```{r include=FALSE}
+library(purrr)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(scales)
+library(caret)
+library(ggplot2)
+library(randomForest)
+library(rpart)
+set.seed(3312)
+```
+
+## Introduction
+
+The purpose of this analysis is to recognize common errors that a person does
+when performing unilateral dumbbell biceps curl. We have a training dataset
+where subjects were asked to perform the excercise while wearing sensor in
+5 different fashions which are recorded in the dataset as `classe` variable.
+These fashions denote different kinds of errors that are made while performing
+the exercise. We will be training a model with the sensor data as input and 
+the model will predict the `classe`.
+
+## The Dataset
+
+First lets make some exploratory analysis on the dataset.
+
+```{r cache=TRUE}
+dataset <- read.csv("pml-training.csv")
+```
+
+The dataset has `r length(colnames(dataset))` variables and `r nrow(dataset)`
+observations. Upon inspection, sensors monitor 3 different euler angles:
+`roll`, `pitch` and `yaw`. 
+
+There is also a variable called `user_name` which indicates the person that the
+sensors record data from. There are `r unique(dataset$user_name)` unique users
+and `r unique(dataset$classe)` `classe`.
+
+All data points can be summarised in this `user_name` x `classe` table. Count
+of observations are converted to the percentage of entire dataset.
+
+```{r}
+dataset %>% 
+  group_by(user_name, classe) %>% 
+  summarise(count = n()) %>% 
+  ungroup() %>% 
+  mutate(count = percent(count / sum(count))) %>% 
+  spread(classe, count) %>%
+  kable()
+```
+
+Some variables seem to have a lot of `NA` values. These variables are computed
+based on the sensor data. These variables have statistical abbreviations on 
+their name like `max`, `stddev` and `avg`. The data is a time series data 
+consisting of windows and these computed values exist for the end of windows. 
+
+We will use the variables that start with `avg` to explore the relationship
+of sensor data with the `classe`. There are a lot of variables and `avg` would
+be a good place to start. Since these data are one per window, we will filter 
+out the missing values. Also, I'm normalizing the data points per variable 
+to see the characteristic independent of scale.
+
+```{r fig.height=7}
+avg_dataset <- dataset %>% 
+  filter(new_window == "yes") %>% 
+  select(classe, contains("avg_")) %>% 
+  gather("colname", "colname_val", contains("avg_")) %>% 
+  separate("colname", into = c("method", "angle", "sensor")) %>% 
+  select(-method)
+
+ggplot(avg_dataset, aes(classe, colname_val)) +
+  geom_point(alpha = 0.1, size = 3) +
+  facet_grid(angle ~ sensor, scales = "free_y") +
+  ylab("measurement")
+```
+
+Some correlation between sensor data and different `classe` is visible. For
+example in the case A, arm sensor data seems to be more distributors than in
+other cases. For case E, belt yaw values looks closer to each other for above
+0 values. For case C, dumbbell roll values seem to have a cluster around -100.
+Each of these cases show a different type of error. For each case, measurements
+seems to identify a certain characteristics in the movement.
+
+## Variable Selection
+
+For the model selection, we are selecting only features that are not part
+of a statistics like `mean` or `max`. Those values are once for repetition and
+mostly `NA`. Our model should be able to work in their absence.
+Also I'm excluding the `user_name` variable, because the model has to be 
+generic and work for anyone. 
+
+```{r}
+cols <- names(dataset)
+statistic_abbrev <- c("avg", "stddev", "skewness", "var", "max", "min",
+                      "kurtosis", "total", "amplitude")
+nonstat_cols <- cols[reduce(map(statistic_abbrev, ~ !grepl(.x, cols)), `&`)]
+
+dataset_nostat <- dataset %>%
+  filter(new_window != "yes") %>%
+  select_(.dots = nonstat_cols) %>%
+  select(-contains("timestamp"), -new_window, -X, -user_name)
+```
+
+Making a PCA to determine variables that make up the 80% of the variation
+in the dataset.
+
+```{r}
+pca_pp <- preProcess(dataset_nostat %>% select(-classe), 
+                     thresh = 0.8, method = "pca")
+
+pca_pp
+```
+
+## Partitioning Data
+
+We should partition the before training our model to get a better estimate
+of our out of sample error rate.
+
+```{r}
+in_train <- createDataPartition(dataset_nostat$classe, p = 0.7, list = FALSE)
+training <- dataset_nostat[in_train,]
+testing <- dataset_nostat[-in_train,]
+```
+
+## Fitting Models
+
+I will start by fitting a decision tree. This model will use k-fold cross
+validation to improve the fit.
+
+```{r}
+ctree <- train(classe ~ ., data = training, method = "rpart",
+               trControl = trainControl(method = "cv"))
+ctree
+```
+
+Accuracy of the classification tree is not great. I will try random forests
+with bootstrap aggregating error measurement in order to select the best fit.
+
+```{r cache=TRUE}
+rf <- train(classe ~ ., data = training, method = "rf",
+            trControl = trainControl(method = "oob"))
+rf
+```
+
+Random forests seem to have good accuracy based on cross validation. Now I will
+apply it once on the test set to get a better estimate for the out of sample
+error.
+
+```{r}
+predictions <- predict(rf, newdata = testing %>% select(-classe))
+confusionMatrix(predictions, testing$classe)
+```
+
+## Conclusion
+
+Random forest model with the test set prediction indicates similar accuracy 
+to cross validation with 99%. This seems to be a very successful model.

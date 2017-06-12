@@ -1,0 +1,12 @@
+base
+purrr
+dplyr
+tidyr
+knitr
+scales
+lattice
+ggplot2
+caret
+randomForest
+bindrcpp
+rpart
