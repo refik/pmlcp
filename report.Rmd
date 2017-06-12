@@ -41,8 +41,8 @@ observations. Upon inspection, sensors monitor 3 different euler angles:
 `roll`, `pitch` and `yaw`. 
 
 There is also a variable called `user_name` which indicates the person that the
-sensors record data from. There are `r unique(dataset$user_name)` unique users
-and `r unique(dataset$classe)` `classe`.
+sensors record data from. There are `r length(unique(dataset$user_name))` unique users
+and `r length(unique(dataset$classe))` `classe`.
 
 All data points can be summarised in this `user_name` x `classe` table. Count
 of observations are converted to the percentage of entire dataset.
@@ -65,8 +65,7 @@ consisting of windows and these computed values exist for the end of windows.
 We will use the variables that start with `avg` to explore the relationship
 of sensor data with the `classe`. There are a lot of variables and `avg` would
 be a good place to start. Since these data are one per window, we will filter 
-out the missing values. Also, I'm normalizing the data points per variable 
-to see the characteristic independent of scale.
+out the missing values. 
 
 ```{r fig.height=7}
 avg_dataset <- dataset %>% 
@@ -91,7 +90,7 @@ seems to identify a certain characteristics in the movement.
 
 ## Variable Selection
 
-For the model selection, we are selecting only features that are not part
+For the variable selection, we are selecting only features that are not part
 of a statistics like `mean` or `max`. Those values are once for repetition and
 mostly `NA`. Our model should be able to work in their absence.
 Also I'm excluding the `user_name` variable, because the model has to be 

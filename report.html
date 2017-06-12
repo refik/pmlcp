@@ -132,7 +132,7 @@ $(document).ready(function () {
 <p>First lets make some exploratory analysis on the dataset.</p>
 <pre class="r"><code>dataset &lt;- read.csv(&quot;pml-training.csv&quot;)</code></pre>
 <p>The dataset has 160 variables and 19622 observations. Upon inspection, sensors monitor 3 different euler angles: <code>roll</code>, <code>pitch</code> and <code>yaw</code>.</p>
-<p>There is also a variable called <code>user_name</code> which indicates the person that the sensors record data from. There are carlitos, pedro, adelmo, charles, eurico, jeremy unique users and A, B, C, D, E <code>classe</code>.</p>
+<p>There is also a variable called <code>user_name</code> which indicates the person that the sensors record data from. There are 6 unique users and 5 <code>classe</code>.</p>
 <p>All data points can be summarised in this <code>user_name</code> x <code>classe</code> table. Count of observations are converted to the percentage of entire dataset.</p>
 <pre class="r"><code>dataset %&gt;% 
   group_by(user_name, classe) %&gt;% 
@@ -204,7 +204,7 @@ $(document).ready(function () {
 </tbody>
 </table>
 <p>Some variables seem to have a lot of <code>NA</code> values. These variables are computed based on the sensor data. These variables have statistical abbreviations on their name like <code>max</code>, <code>stddev</code> and <code>avg</code>. The data is a time series data consisting of windows and these computed values exist for the end of windows.</p>
-<p>We will use the variables that start with <code>avg</code> to explore the relationship of sensor data with the <code>classe</code>. There are a lot of variables and <code>avg</code> would be a good place to start. Since these data are one per window, we will filter out the missing values. Also, I’m normalizing the data points per variable to see the characteristic independent of scale.</p>
+<p>We will use the variables that start with <code>avg</code> to explore the relationship of sensor data with the <code>classe</code>. There are a lot of variables and <code>avg</code> would be a good place to start. Since these data are one per window, we will filter out the missing values.</p>
 <pre class="r"><code>avg_dataset &lt;- dataset %&gt;% 
   filter(new_window == &quot;yes&quot;) %&gt;% 
   select(classe, contains(&quot;avg_&quot;)) %&gt;% 
@@ -221,7 +221,7 @@ ggplot(avg_dataset, aes(classe, colname_val)) +
 </div>
 <div id="variable-selection" class="section level2">
 <h2>Variable Selection</h2>
-<p>For the model selection, we are selecting only features that are not part of a statistics like <code>mean</code> or <code>max</code>. Those values are once for repetition and mostly <code>NA</code>. Our model should be able to work in their absence. Also I’m excluding the <code>user_name</code> variable, because the model has to be generic and work for anyone.</p>
+<p>For the variable selection, we are selecting only features that are not part of a statistics like <code>mean</code> or <code>max</code>. Those values are once for repetition and mostly <code>NA</code>. Our model should be able to work in their absence. Also I’m excluding the <code>user_name</code> variable, because the model has to be generic and work for anyone.</p>
 <pre class="r"><code>cols &lt;- names(dataset)
 statistic_abbrev &lt;- c(&quot;avg&quot;, &quot;stddev&quot;, &quot;skewness&quot;, &quot;var&quot;, &quot;max&quot;, &quot;min&quot;,
                       &quot;kurtosis&quot;, &quot;total&quot;, &quot;amplitude&quot;)
